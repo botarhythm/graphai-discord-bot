@@ -3,7 +3,11 @@
  * Gemini APIを使用してウェブ検索を実行します
  */
 
-import { Agent } from 'graphai';
+interface Agent {
+  name: string;
+  process(input: any): Promise<any>;
+}
+
 import fetch from 'node-fetch';
 
 class WebSearchAgent implements Agent {
@@ -91,7 +95,7 @@ class WebSearchAgent implements Agent {
         };
       }
 
-      const data = await response.json();
+      const data = await response.json() as any;
       
       // 検索結果の抽出
       if (data.candidates && data.candidates[0] && data.candidates[0].content) {
