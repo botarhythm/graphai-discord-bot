@@ -107,30 +107,64 @@ client.on('messageCreate', async (message) => {
   // ボット自身のメッセージは無視
   if (message.author.bot) return;
 
-  // 以下の条件のみで反応する：
-  // 1. ボットが直接メンションされた場合
-  // 2. スレッド内のメッセージで親メッセージがボットの場合
-  // 3. DMの場合
-  const isMentioned = message.mentions.has(client.user.id);
+  // 以下の条件をより厳密にチェック
+  
+  // 1. ボットのメンションを直接的に確認（正規表現を使用して確実に）
+  // ここでボットのIDを使用して直接テキスト内に`<@BOT_ID>`や`<@!BOT_ID>`の形式があるか確認
+  const botId = client.user.id;
+  const botMentionRegex = new RegExp(`<@!?${botId}>`, 'i');
+  const isMentioned = botMentionRegex.test(message.content);
+  
+  // 2. DMの確認
   const isDM = message.channel.type === ChannelType.DM;
-  const isThreadReply = message.channel.isThread() && 
-                        message.channel.parentId && 
-                        message.channel.ownerId === client.user.id;
+  
+  // 3. スレッド内の返信確認（親がボットかを確認）
+  // スレッドの確認ロジックを修正
+  let isThreadReply = false;
+  if (message.channel.isThread && message.channel.isThread()) {
+    try {
+      // スレッドの親メッセージを取得して確認する追加チェック
+      const parentChannel = message.channel.parent;
+      if (parentChannel) {
+        // 可能であれば親メッセージの作成者を確認
+        const threadStarterMessage = await message.channel.fetchStarterMessage().catch(() => null);
+        if (threadStarterMessage && threadStarterMessage.author.id === client.user.id) {
+          isThreadReply = true;
+        }
+      }
+    } catch (e) {
+      console.error("Thread parent check error:", e);
+    }
+  }
+
+  // デバッグログを追加
+  console.log(`Message processing check:
+  - From: ${message.author.tag}
+  - Content: ${message.content}
+  - Channel: ${message.channel.name || 'DM'}
+  - Channel Type: ${message.channel.type}
+  - Is Mentioned: ${isMentioned}
+  - Is DM: ${isDM}
+  - Is Thread Reply: ${isThreadReply}
+  `);
 
   // いずれかの条件を満たしていない場合は処理しない
-  if (!isMentioned && !isDM && !isThreadReply) return;
+  if (!isMentioned && !isDM && !isThreadReply) {
+    console.log("Message ignored - conditions not met");
+    return;
+  }
+
+  console.log("Message will be processed!");
 
   try {
-    console.log(`Received message: ${message.content}`);
-    console.log(`Channel type: ${message.channel.type}`);
-    console.log(`Is mentioned: ${isMentioned}, Is DM: ${isDM}, Is thread reply: ${isThreadReply}`);
-    
     // メンションを取り除いたコンテンツを作成
     let cleanContent = message.content;
     if (isMentioned) {
-      // メンションを取り除く (全てのメンションを考慮)
-      cleanContent = cleanContent.replace(/<@!?\d+>/g, '').trim();
+      // メンションを取り除く (より厳密な方法)
+      cleanContent = cleanContent.replace(/<@!?[0-9]+>/g, '').trim();
     }
+    
+    console.log(`Processing message: "${cleanContent}"`);
     
     // GraphAIフローの実行
     const result = await graphAI.run({
