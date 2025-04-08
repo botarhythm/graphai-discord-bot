@@ -50,7 +50,7 @@ const agents = {
   searchResultFormatterAgent: SearchResultFormatterAgent
 };
 
-// GraphAIインターフェース（実際のGraphAIライブラリとの互換性のため）
+// GraphAIインターフェース（本物のGraphAIライブラリとの互換性のため）
 interface GraphAI {
   run(config: any): Promise<any>;
 }
@@ -116,16 +116,10 @@ async function startBot(): Promise<void> {
     ],
     partials: [
       Partials.Channel,     // DMチャンネルを部分的に取得するために必要
-      Partials.Message,     // キャッシュにないメッセージを処理するために必要
-      Partials.User         // キャッシュにないユーザーを処理するために必要
+      Partials.Message,     // キャッシュないメッセージを処理するために必要
+      Partials.User         // キャッシュないユーザーを処理するために必要
     ]
   });
-
-  // 環境変数の確認
-  const allowAllServers = process.env.ALLOW_ALL_SERVERS === 'true';
-  const enableDM = process.env.ENABLE_DM === 'true';
-  
-  console.log(`Environment config: ALLOW_ALL_SERVERS=${allowAllServers}, ENABLE_DM=${enableDM}`);
 
   // GraphAIインスタンスの作成
   const graphAI = new GraphAIImplementation({
@@ -153,23 +147,56 @@ async function startBot(): Promise<void> {
     // ボット自身のメッセージは無視
     if (message.author.bot) return;
 
-    // DMのデバッグログ
-    if (!message.guild) {
-      const dmStatus = debugDM(message);
-      console.log(`DM detected: ${dmStatus ? 'successfully processed' : 'failed to process debug'}`);
+    // 以下の条件以外は処理しない
+    // 1. ボットがメンションされた場合
+    // 2. DMの場合
+    // 3. ボットが起点のスレッド内のメッセージ
+    const botId = client.user?.id;
+    const botMentionRegex = new RegExp(`<@!?${botId}>`, 'i');
+    const isMentioned = botId && botMentionRegex.test(message.content);
+    const isDM = !message.guild;
+    
+    // スレッド関連の確認（スレッドが存在し、親がボットか）
+    let isThreadReply = false;
+    if (message.channel.isThread && message.channel.isThread()) {
+      try {
+        const threadStarterMessage = await message.channel.fetchStarterMessage().catch(() => null);
+        if (threadStarterMessage && threadStarterMessage.author.id === client.user?.id) {
+          isThreadReply = true;
+        }
+      } catch (e) {
+        console.error("Thread check error:", e);
+      }
     }
-
-    // ログ出力を強化
+    
+    // 詳細なログ出力
     console.log(`Message received: "${message.content}" from ${message.author.tag} in ${message.guild ? message.guild.name : 'DM'}`);
     console.log(`Channel type: ${message.channel.type}`);
+    console.log(`Check conditions: isMentioned=${isMentioned}, isDM=${isDM}, isThreadReply=${isThreadReply}`);
+
+    // 条件チェック - どの条件も満たさない場合は処理しない
+    if (!isMentioned && !isDM && !isThreadReply) {
+      console.log("Message ignored: Does not meet bot interaction criteria");
+      return;
+    }
+
+    console.log("Message will be processed: Meets bot interaction criteria");
 
     try {
+      // メンションを取り除く処理
+      let cleanContent = message.content;
+      if (isMentioned && botId) {
+        cleanContent = cleanContent.replace(new RegExp(`<@!?${botId}>`, 'g'), '').trim();
+      }
+
+      console.log(`Processing content: "${cleanContent}"`);
+      
       // GraphAIフローの実行
       const result = await graphAI.run({
         ...webSearchFlowConfig,
         nodes: {
           ...(webSearchFlowConfig as any).nodes,
-          input: { value: message.content }
+          input: { value: cleanContent }
         }
       });
 
