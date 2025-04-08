@@ -7,7 +7,7 @@ import dotenv from 'dotenv';
 import { Client, GatewayIntentBits, ChannelType } from 'discord.js';
 import { GraphAI } from 'graphai';
 
-// ESM用の__dirname代替
+// ESM用の__dirname疑似
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
@@ -107,17 +107,37 @@ client.on('messageCreate', async (message) => {
   // ボット自身のメッセージは無視
   if (message.author.bot) return;
 
-  // DMとサーバーチャンネルの両方で応答するように修正
+  // 以下の条件のみで反応する：
+  // 1. ボットが直接メンションされた場合
+  // 2. スレッド内のメッセージで親メッセージがボットの場合
+  // 3. DMの場合
+  const isMentioned = message.mentions.has(client.user.id);
+  const isDM = message.channel.type === ChannelType.DM;
+  const isThreadReply = message.channel.isThread() && 
+                        message.channel.parentId && 
+                        message.channel.ownerId === client.user.id;
+
+  // いずれかの条件を満たしていない場合は処理しない
+  if (!isMentioned && !isDM && !isThreadReply) return;
+
   try {
     console.log(`Received message: ${message.content}`);
     console.log(`Channel type: ${message.channel.type}`);
+    console.log(`Is mentioned: ${isMentioned}, Is DM: ${isDM}, Is thread reply: ${isThreadReply}`);
+    
+    // メンションを取り除いたコンテンツを作成
+    let cleanContent = message.content;
+    if (isMentioned) {
+      // メンションを取り除く (全てのメンションを考慮)
+      cleanContent = cleanContent.replace(/<@!?\d+>/g, '').trim();
+    }
     
     // GraphAIフローの実行
     const result = await graphAI.run({
       ...webSearchFlow,
       nodes: {
         ...webSearchFlow.nodes,
-        input: { value: message.content }
+        input: { value: cleanContent }
       }
     });
 
