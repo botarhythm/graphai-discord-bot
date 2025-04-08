@@ -99,7 +99,8 @@ async function startBot(): Promise<void> {
     intents: [
       GatewayIntentBits.Guilds,
       GatewayIntentBits.GuildMessages,
-      GatewayIntentBits.MessageContent
+      GatewayIntentBits.MessageContent,
+      GatewayIntentBits.DirectMessages // DMを受信するために追加
     ]
   });
 
@@ -118,6 +119,9 @@ async function startBot(): Promise<void> {
   client.on('messageCreate', async (message) => {
     // ボット自身のメッセージは無視
     if (message.author.bot) return;
+
+    // ログ
+    console.log(`Message received: ${message.content} from ${message.author.tag} in ${message.guild ? message.guild.name : 'DM'}`);
 
     try {
       // GraphAIフローの実行
