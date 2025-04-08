@@ -4,10 +4,14 @@ import dotenv from 'dotenv';
 import fs from 'fs/promises';
 import path from 'path';
 import yaml from 'js-yaml';
+import fetch from 'node-fetch';
 
-// Blobのグローバル定義 (Node.js環境向け)
+// node-fetchからBlobをインポート
+const { Blob } = fetch;
+
+// グローバルにBlobを設定
 if (typeof global.Blob === 'undefined') {
-  global.Blob = (await import('buffer')).Blob;
+  global.Blob = Blob as any;
 }
 
 // エージェントのインポート
