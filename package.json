@@ -2,8 +2,11 @@
   "name": "graphai-discord-bot",
   "version": "1.0.0",
   "description": "GraphAI-powered Discord Bot with Multimodal Capabilities",
-  "main": "src/index.js",
   "type": "module",
+  "main": "src/index.js",
+  "engines": {
+    "node": ">=14.0.0"
+  },
   "scripts": {
     "start": "node src/index.js"
   },
