@@ -1,0 +1,32 @@
+# 依存パッケージ
+node_modules/
+package-lock.json
+
+# 環境変数
+.env
+.env.local
+.env.*.local
+
+# データファイル
+data/conversations/
+data/temp/
+data/image_counter.json
+
+# ログファイル
+logs/
+*.log
+npm-debug.log*
+
+# エディタ関連
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS関連
+.DS_Store
+Thumbs.db
+
+# ビルド出力
+dist/
+build/
