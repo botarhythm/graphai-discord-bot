@@ -4,7 +4,6 @@ import { GraphAI } from 'graphai';
 import dotenv from 'dotenv';
 import fs from 'fs/promises';
 import path from 'path';
-import yaml from 'js-yaml';
 
 // グローバルにBlobを設定
 globalThis.Blob = Blob;
@@ -13,6 +12,9 @@ globalThis.Blob = Blob;
 import CommandParserAgent from './agents/command-parser-agent';
 import WebSearchAgent from './agents/web-search-agent';
 import SearchResultFormatterAgent from './agents/search-result-formatter-agent';
+
+// ウェブ検索フローの設定をインポート
+import webSearchFlowConfig from './flows/web-search-flow.js';
 
 // 環境変数の読み込み
 dotenv.config();
@@ -26,7 +28,7 @@ Timestamp: ${timestamp}
 Context: ${context}
 Error: ${error instanceof Error ? error.message : String(error)}
 Error Stack: ${error instanceof Error ? error.stack : 'N/A'}
-====================
+=================
 `;
   
   console.error(errorLog);
@@ -44,22 +46,8 @@ const agents = {
   searchResultFormatterAgent: SearchResultFormatterAgent
 };
 
-// フロー読み込み関数
-async function loadFlow(flowPath: string): Promise<unknown> {
-  try {
-    const fileContents = await fs.readFile(flowPath, 'utf8');
-    return yaml.load(fileContents);
-  } catch (error) {
-    logError('Flow Loading', error);
-    throw error;
-  }
-}
-
 // メインアプリケーション関数
 async function startBot(): Promise<void> {
-  // メインフロー読み込み
-  const webSearchFlow = await loadFlow(path.resolve(__dirname, 'flows', 'web-search-flow.yaml'));
-
   // Discordクライアントの設定
   const client = new Client({
     intents: [
@@ -75,7 +63,7 @@ async function startBot(): Promise<void> {
     agents: agents
   });
 
-  // Discordボットのログイン準備
+  // Discordボットのログイン完了
   client.once('ready', () => {
     console.log(`Logged in as ${client.user?.tag}`);
   });
@@ -88,9 +76,9 @@ async function startBot(): Promise<void> {
     try {
       // GraphAIフローの実行
       const result = await graphAI.run({
-        ...webSearchFlow as object,
+        ...webSearchFlowConfig,
         nodes: {
-          ...(webSearchFlow as any).nodes,
+          ...(webSearchFlowConfig as any).nodes,
           input: { value: message.content }
         }
       });
@@ -101,7 +89,7 @@ async function startBot(): Promise<void> {
       }
     } catch (error) {
       logError('Message Processing', error);
-      message.reply('処理中に予期せぬエラーが発生しました。詳細はログを確認してください。');
+      message.reply('処理中に予期せぬエラーが発生しました。管理者はログを確認してください。');
     }
   });
 
