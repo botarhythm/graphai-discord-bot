@@ -8,7 +8,7 @@ export default {
       next: "commandParser"
     },
 
-    // コマンドパーサーノード - ユーザー入力を解析します
+    // コマンドパーサーノード - ユーザ入力を解析します
     commandParser: {
       type: "agent",
       agent: "commandParserAgent",
@@ -22,7 +22,7 @@ export default {
           target: "helpCommand"
         },
         {
-          condition: "result.command === 'chat'",
+          condition: "result.command === 'chatDefault'",
           target: "chatDefault"
         },
         {
@@ -51,8 +51,7 @@ export default {
     // ヘルプコマンドノード - ヘルプテキストを生成します
     helpCommand: {
       type: "value",
-      value: `
-## 🤖 ボッチーボット ヘルプ
+      value: `## 🔖 ボッチーボット ヘルプ
 
 以下のコマンドが利用できます:
 
@@ -73,7 +72,7 @@ export default {
       next: "output"
     },
 
-    // 出力ノード - 最終的な応答を返します
+    // 出力ノード - 最終的な結果を返します
     output: {
       type: "output"
     }
