@@ -1,0 +1,31 @@
+version: 0.5
+concurrency: 8
+nodes:
+  input:
+    value: ""
+    update: :commandParser.query
+  
+  commandParser:
+    agent: commandParserAgent
+    inputs:
+      message: :input
+  
+  webSearch:
+    agent: webSearchAgent
+    inputs:
+      query: :commandParser.query
+    if: :commandParser.isWebSearch
+    params:
+      count: 5
+      safeSearch: true
+  
+  resultFormatter:
+    agent: searchResultFormatterAgent
+    inputs:
+      results: :webSearch.results
+    if: :webSearch.results
+  
+  output:
+    value: ""
+    update: :resultFormatter.formattedResults
+    isResult: true

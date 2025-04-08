@@ -1,82 +1,64 @@
-/**
- * GraphAI × Discord マルチモーダルチャットボット「ボッチー」
- * メインエントリーポイント
- */
+import { Client, GatewayIntentBits } from 'discord.js';
+import { GraphAI } from 'graphai';
+import dotenv from 'dotenv';
+import fs from 'fs';
+import yaml from 'js-yaml';
+import path from 'path';
 
-const { Client, GatewayIntentBits, Events } = require('discord.js');
-const config = require('./config');
-const graphEngine = require('./graphai-engine');
-const path = require('path');
-const fs = require('fs');
+import CommandParserAgent from './agents/command-parser-agent.js';
+import WebSearchAgent from './agents/web-search-agent.js';
+import SearchResultFormatterAgent from './agents/search-result-formatter-agent.js';
 
-// データディレクトリの確認・作成
-const dataDir = path.join(__dirname, '../data');
-if (!fs.existsSync(dataDir)) {
-  fs.mkdirSync(dataDir, { recursive: true });
+dotenv.config();
+
+const agents = {
+  commandParserAgent: CommandParserAgent,
+  webSearchAgent: WebSearchAgent,
+  searchResultFormatterAgent: SearchResultFormatterAgent
+};
+
+function loadFlow(flowPath) {
+  const fileContents = fs.readFileSync(flowPath, 'utf8');
+  return yaml.load(fileContents);
 }
 
-// Discord.jsクライアントの初期化
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent,
-  ],
+    GatewayIntentBits.MessageContent
+  ]
 });
 
-// 起動時の処理
-client.once(Events.ClientReady, () => {
-  console.log(`✅ Bot is ready! Logged in as ${client.user.tag}`);
+const webSearchFlow = loadFlow(path.resolve('./src/flows/web-search-flow.yaml'));
+
+const graphAI = new GraphAI({
+  agents: agents
 });
 
-// メッセージ受信イベントの処理
-client.on(Events.MessageCreate, async message => {
-  // 自分自身のメッセージは無視
+client.once('ready', () => {
+  console.log(`Logged in as ${client.user.tag}`);
+});
+
+client.on('messageCreate', async (message) => {
   if (message.author.bot) return;
-  
-  console.log(`📝 Message received: ${message.content}`);
-  
-  // GraphAIフローの実行開始
+
   try {
-    const result = await graphEngine.execute('main', {
-      discordInput: {
-        content: message.content,
-        attachments: message.attachments.map(a => a.url),
-        channelId: message.channelId,
-        messageId: message.id,
-        authorId: message.author.id,
-        username: message.author.username,
-        reply: async (content) => {
-          await message.reply(content);
-        }
+    const result = await graphAI.run({
+      ...webSearchFlow,
+      nodes: {
+        ...webSearchFlow.nodes,
+        input: { value: message.content }
       }
     });
-    
-    console.log('📊 GraphAI Flow Execution Result:', JSON.stringify(result, null, 2));
+
+    if (result.output) {
+      message.reply(result.output);
+    }
   } catch (error) {
-    console.error('❌ GraphAI Flow Execution Error:', error);
-    await message.reply('内部エラーが発生しました。しばらくしてからもう一度お試しください。');
+    console.error('GraphAI実行エラー:', error);
+    message.reply('処理中にエラーが発生しました。');
   }
 });
 
-// エラーハンドリング
-client.on(Events.Error, error => {
-  console.error('❌ Discord Client Error:', error);
-});
-
-// Botのログイン
-client.login(config.discord.token)
-  .then(() => console.log('🚀 Connecting to Discord...'))
-  .catch(err => {
-    console.error('❌ Failed to connect to Discord:', err);
-    process.exit(1);
-  });
-
-// プロセス終了時の処理
-process.on('SIGINT', () => {
-  console.log('⏹️ Shutting down bot...');
-  client.destroy();
-  process.exit(0);
-});
-
-console.log('🤖 GraphAI Discord Bot is starting...');
+client.login(process.env.DISCORD_TOKEN);
