@@ -1,0 +1,14 @@
+{
+  "install": {
+    "include": [
+      "^package\\.json$"
+    ]
+  },
+  "restart": {
+    "include": [
+      "^\\.env$",
+      "^src/"
+    ]
+  },
+  "throttle": 5000
+}
