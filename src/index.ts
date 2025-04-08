@@ -1,6 +1,5 @@
 import { Blob } from 'cross-blob';
 import { Client, GatewayIntentBits } from 'discord.js';
-import { GraphAI } from 'graphai';
 import dotenv from 'dotenv';
 import fs from 'fs/promises';
 import path from 'path';
@@ -9,9 +8,9 @@ import path from 'path';
 globalThis.Blob = Blob;
 
 // エージェントのインポート
-import CommandParserAgent from './agents/command-parser-agent';
-import WebSearchAgent from './agents/web-search-agent';
-import SearchResultFormatterAgent from './agents/search-result-formatter-agent';
+import CommandParserAgent from './agents/command-parser-agent.js';
+import WebSearchAgent from './agents/web-search-agent.js';
+import SearchResultFormatterAgent from './agents/search-result-formatter-agent.js';
 
 // ウェブ検索フローの設定をインポート
 import webSearchFlowConfig from './flows/web-search-flow.js';
@@ -33,7 +32,7 @@ Error Stack: ${error instanceof Error ? error.stack : 'N/A'}
   
   console.error(errorLog);
   
-  fs.appendFile(path.join(__dirname, '..', 'error.log'), errorLog)
+  fs.appendFile(path.join(path.dirname(new URL(import.meta.url).pathname), '..', 'error.log'), errorLog)
     .catch(logError => {
       console.error('Failed to write error log:', logError);
     });
@@ -45,6 +44,51 @@ const agents = {
   webSearchAgent: WebSearchAgent,
   searchResultFormatterAgent: SearchResultFormatterAgent
 };
+
+// GraphAIインターフェースのモック（実際のGraphAIライブラリとの互換性のため）
+interface GraphAI {
+  run(config: any): Promise<any>;
+}
+
+class GraphAIImplementation implements GraphAI {
+  version: string;
+  agents: Record<string, any>;
+
+  constructor(options: { version: string; agents: Record<string, any> }) {
+    this.version = options.version;
+    this.agents = options.agents;
+  }
+
+  async run(config: any): Promise<any> {
+    try {
+      // 入力値の取得
+      const inputValue = config.nodes.input.value;
+      
+      // コマンドの解析
+      const commandResult = await this.agents.commandParserAgent.process(inputValue);
+      
+      // コマンドタイプに基づいて処理を分岐
+      if (commandResult.command === 'webSearch' && commandResult.args) {
+        // Web検索の実行
+        const searchResult = await this.agents.webSearchAgent.process(commandResult.args);
+        
+        // 検索結果の整形
+        const formattedResult = await this.agents.searchResultFormatterAgent.process(searchResult);
+        
+        return { output: formattedResult };
+      } else if (commandResult.command === 'help') {
+        // ヘルプテキストを返す
+        return { output: config.nodes.helpCommand.value };
+      } else {
+        // その他のコマンドやチャット
+        return { output: config.nodes.chatDefault.value };
+      }
+    } catch (error) {
+      logError('GraphAI Flow Execution', error);
+      throw error;
+    }
+  }
+}
 
 // メインアプリケーション関数
 async function startBot(): Promise<void> {
@@ -58,7 +102,7 @@ async function startBot(): Promise<void> {
   });
 
   // GraphAIインスタンスの作成
-  const graphAI = new GraphAI({
+  const graphAI = new GraphAIImplementation({
     version: '0.5',
     agents: agents
   });
@@ -114,6 +158,6 @@ process.on('uncaughtException', (error) => {
   process.exit(1);
 });
 
-process.on('unhandledRejection', (reason, promise) => {
+process.on('unhandledRejection', (reason) => {
   logError('Unhandled Rejection', reason);
 });
