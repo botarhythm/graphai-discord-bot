@@ -3,7 +3,10 @@
  * WebSearchAgentからの結果を整形して表示用に処理します
  */
 
-import { Agent } from 'graphai';
+interface Agent {
+  name: string;
+  process(input: any): Promise<any>;
+}
 
 class SearchResultFormatterAgent implements Agent {
   name = 'SearchResultFormatterAgent';
