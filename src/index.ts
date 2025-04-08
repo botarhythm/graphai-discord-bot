@@ -1,6 +1,6 @@
 // Blobのインポート
 import Blob from 'cross-blob';
-import { Client, GatewayIntentBits } from 'discord.js';
+import { Client, GatewayIntentBits, ChannelType } from 'discord.js';
 import dotenv from 'dotenv';
 import fs from 'fs/promises';
 import path from 'path';
@@ -29,7 +29,7 @@ Timestamp: ${timestamp}
 Context: ${context}
 Error: ${error instanceof Error ? error.message : String(error)}
 Error Stack: ${error instanceof Error ? error.stack : 'N/A'}
-=================
+==================
 `;
   
   console.error(errorLog);
@@ -40,14 +40,14 @@ Error Stack: ${error instanceof Error ? error.stack : 'N/A'}
     });
 }
 
-// エージェント登録
+// エージェント定義
 const agents = {
   commandParserAgent: CommandParserAgent,
   webSearchAgent: WebSearchAgent,
   searchResultFormatterAgent: SearchResultFormatterAgent
 };
 
-// GraphAIインターフェースのモック（実際のGraphAIライブラリとの互換性のため）
+// GraphAIインターフェース（実際のGraphAIライブラリとの互換性のため）
 interface GraphAI {
   run(config: any): Promise<any>;
 }
@@ -69,7 +69,7 @@ class GraphAIImplementation implements GraphAI {
       // コマンドの解析
       const commandResult = await this.agents.commandParserAgent.process(inputValue);
       
-      // コマンドタイプに基づいて処理を分岐
+      // コマンドタイプに沿って処理を分岐
       if (commandResult.command === 'webSearch' && commandResult.args) {
         // Web検索の実行
         const searchResult = await this.agents.webSearchAgent.process(commandResult.args);
@@ -100,7 +100,9 @@ async function startBot(): Promise<void> {
       GatewayIntentBits.Guilds,
       GatewayIntentBits.GuildMessages,
       GatewayIntentBits.MessageContent,
-      GatewayIntentBits.DirectMessages // DMを受信するために追加
+      GatewayIntentBits.DirectMessages, // DMを受信するために追加
+      GatewayIntentBits.DirectMessageTyping, // DMタイピング通知を受信するために追加
+      GatewayIntentBits.DirectMessageReactions // DMリアクションを受信するために追加
     ]
   });
 
@@ -120,8 +122,9 @@ async function startBot(): Promise<void> {
     // ボット自身のメッセージは無視
     if (message.author.bot) return;
 
-    // ログ
+    // ログ出力を強化
     console.log(`Message received: ${message.content} from ${message.author.tag} in ${message.guild ? message.guild.name : 'DM'}`);
+    console.log(`Channel type: ${message.channel.type}`);
 
     try {
       // GraphAIフローの実行
