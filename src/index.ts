@@ -1,4 +1,5 @@
-import { Blob } from 'cross-blob';
+// Blobのインポート
+import Blob from 'cross-blob';
 import { Client, GatewayIntentBits } from 'discord.js';
 import dotenv from 'dotenv';
 import fs from 'fs/promises';
@@ -13,6 +14,7 @@ import WebSearchAgent from './agents/web-search-agent.js';
 import SearchResultFormatterAgent from './agents/search-result-formatter-agent.js';
 
 // ウェブ検索フローの設定をインポート
+// @ts-ignore
 import webSearchFlowConfig from './flows/web-search-flow.js';
 
 // 環境変数の読み込み
