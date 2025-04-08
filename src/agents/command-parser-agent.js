@@ -1,5 +1,34 @@
 class CommandParserAgent {
-  static async run({ message }, context) {
+  static async process(message) {
+    console.log(`CommandParserAgent processing message: ${message}`);
+    
+    if (!message || typeof message !== 'string') {
+      console.log('Invalid message format. Expected string but got:', typeof message);
+      return { command: 'chatDefault', args: message };
+    }
+
+    // コマンド前置詞の検出
+    const prefix = process.env.PREFIX || '!';
+    
+    // コマンドの処理
+    if (message.startsWith(prefix)) {
+      const args = message.slice(prefix.length).trim().split(/ +/);
+      const command = args.shift().toLowerCase();
+      
+      console.log(`Detected command: ${command}, with args:`, args);
+      
+      if (command === 'help') {
+        return { command: 'help' };
+      } else if (command === 'search' || command === 'web') {
+        return { command: 'webSearch', args: args.join(' ') };
+      } else if (command === 'clear') {
+        return { command: 'clearChat' };
+      } else if (command === 'image') {
+        return { command: 'generateImage', args: args.join(' ') };
+      }
+    }
+    
+    // Web検索トリガーの検出
     const searchTriggers = [
       '検索して', 
       '調べて', 
@@ -16,15 +45,18 @@ class CommandParserAgent {
     );
 
     let query = message;
-    searchTriggers.forEach(trigger => {
-      query = query.replace(new RegExp(trigger, 'gi'), '').trim();
-    });
+    if (isWebSearch) {
+      searchTriggers.forEach(trigger => {
+        query = query.replace(new RegExp(trigger, 'gi'), '').trim();
+      });
+      
+      console.log(`Detected web search with query: ${query}`);
+      return { command: 'webSearch', args: query };
+    }
 
-    return {
-      isWebSearch: isWebSearch,
-      query: query,
-      originalMessage: message
-    };
+    // 通常のチャットメッセージとして処理
+    console.log('Processing as chat message');
+    return { command: 'chatDefault', args: message };
   }
 }
 
