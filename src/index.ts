@@ -1,18 +1,13 @@
+import { Blob } from 'cross-blob';
 import { Client, GatewayIntentBits } from 'discord.js';
 import { GraphAI } from 'graphai';
 import dotenv from 'dotenv';
 import fs from 'fs/promises';
 import path from 'path';
 import yaml from 'js-yaml';
-import fetch from 'node-fetch';
-
-// node-fetchからBlobをインポート
-const { Blob } = fetch;
 
 // グローバルにBlobを設定
-if (typeof global.Blob === 'undefined') {
-  global.Blob = Blob as any;
-}
+globalThis.Blob = Blob;
 
 // エージェントのインポート
 import CommandParserAgent from './agents/command-parser-agent';
