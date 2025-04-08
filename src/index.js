@@ -4,7 +4,7 @@ import path from 'path';
 import fs from 'fs';
 import yaml from 'js-yaml';
 import dotenv from 'dotenv';
-import { Client, GatewayIntentBits } from 'discord.js';
+import { Client, GatewayIntentBits, ChannelType } from 'discord.js';
 import { GraphAI } from 'graphai';
 
 // ESM用の__dirname代替
@@ -21,13 +21,13 @@ Context: ${context}
 Error Name: ${error.name}
 Error Message: ${error.message}
 Error Stack: ${error.stack}
-====================
+==================
 `;
   
   // コンソールに出力
   console.error(errorLog);
   
-  // ログファイルに追記
+  // ログファイルに記録
   try {
     fs.appendFileSync(path.join(__dirname, '..', 'error.log'), errorLog, 'utf8');
   } catch (logError) {
@@ -48,7 +48,7 @@ import CommandParserAgent from './agents/command-parser-agent.js';
 import WebSearchAgent from './agents/web-search-agent.js';
 import SearchResultFormatterAgent from './agents/search-result-formatter-agent.js';
 
-// エージェント登録
+// エージェント定義
 const agents = {
   commandParserAgent: CommandParserAgent,
   webSearchAgent: WebSearchAgent,
@@ -71,7 +71,9 @@ const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent
+    GatewayIntentBits.MessageContent,
+    GatewayIntentBits.DirectMessages,
+    GatewayIntentBits.DirectMessageTyping
   ]
 });
 
@@ -95,7 +97,7 @@ try {
   process.exit(1);
 }
 
-// Discordボットのログイン準備
+// Discordボットのログイン完了
 client.once('ready', () => {
   console.log(`Logged in as ${client.user.tag}`);
 });
@@ -105,7 +107,11 @@ client.on('messageCreate', async (message) => {
   // ボット自身のメッセージは無視
   if (message.author.bot) return;
 
+  // DMとサーバーチャンネルの両方で応答するように修正
   try {
+    console.log(`Received message: ${message.content}`);
+    console.log(`Channel type: ${message.channel.type}`);
+    
     // GraphAIフローの実行
     const result = await graphAI.run({
       ...webSearchFlow,
