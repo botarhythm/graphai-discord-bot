@@ -1,17 +1,27 @@
 import { brave_web_search } from '../utils/brave-search.js';
 
 class WebSearchAgent {
-  static async run({ query }, context) {
-    const { 
-      count = 5, 
-      safeSearch = true 
-    } = context.params || {};
+  static async process(query) {
+    console.log(`WebSearchAgent processing query: "${query}"`);
+    
+    if (!query || typeof query !== 'string' || query.trim() === '') {
+      console.log('Invalid or empty search query');
+      return { 
+        type: 'error',
+        message: '検索クエリが無効または空です。',
+        results: []
+      };
+    }
 
     try {
+      console.log(`Executing web search for: "${query}"`);
+      
       const searchResults = await brave_web_search(query, {
-        count, 
-        safe: safeSearch
+        count: 5, 
+        safe: true
       });
+
+      console.log(`Received ${searchResults.length} search results for query "${query}"`);
 
       return {
         type: 'web_search',
@@ -28,7 +38,8 @@ class WebSearchAgent {
       return {
         type: 'error',
         message: '検索中にエラーが発生しました',
-        details: error.toString()
+        details: error.toString(),
+        results: []
       };
     }
   }
