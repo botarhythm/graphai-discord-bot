@@ -3,7 +3,10 @@
  * ユーザー入力をコマンドとして解析し、適切なアクションを判断します
  */
 
-import { Agent } from 'graphai';
+interface Agent {
+  name: string;
+  process(input: any): Promise<any>;
+}
 
 class CommandParserAgent implements Agent {
   name = 'CommandParserAgent';
