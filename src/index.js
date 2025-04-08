@@ -4,7 +4,7 @@ import path from 'path';
 import fs from 'fs';
 import yaml from 'js-yaml';
 import dotenv from 'dotenv';
-import { Client, GatewayIntentBits, ChannelType } from 'discord.js';
+import { Client, GatewayIntentBits, ChannelType, Events } from 'discord.js';
 import { GraphAI } from 'graphai';
 
 // ESM用の__dirname疑似
@@ -98,73 +98,64 @@ try {
 }
 
 // Discordボットのログイン完了
-client.once('ready', () => {
+client.once(Events.ClientReady, () => {
+  console.log(`=========== Bot Ready ===========`);
   console.log(`Logged in as ${client.user.tag}`);
+  console.log(`Bot will only respond to:`);
+  console.log(`1. Direct mentions: @${client.user.username}`);
+  console.log(`2. Thread replies (when parent message is from the bot)`);
+  console.log(`3. Direct Messages (DMs)`);
+  console.log(`=================================`);
 });
 
 // メッセージ受信イベント
-client.on('messageCreate', async (message) => {
+client.on(Events.MessageCreate, async (message) => {
   // ボット自身のメッセージは無視
   if (message.author.bot) return;
 
-  // 以下の条件をより厳密にチェック
-  
-  // 1. ボットのメンションを直接的に確認（正規表現を使用して確実に）
-  // ここでボットのIDを使用して直接テキスト内に`<@BOT_ID>`や`<@!BOT_ID>`の形式があるか確認
+  // メンション検出（正規表現を使用して確実に）
   const botId = client.user.id;
   const botMentionRegex = new RegExp(`<@!?${botId}>`, 'i');
   const isMentioned = botMentionRegex.test(message.content);
   
-  // 2. DMの確認
+  // DMの確認
   const isDM = message.channel.type === ChannelType.DM;
   
-  // 3. スレッド内の返信確認（親がボットかを確認）
-  // スレッドの確認ロジックを修正
+  // スレッド返信確認（親がボットかを確認）
   let isThreadReply = false;
+  
   if (message.channel.isThread && message.channel.isThread()) {
     try {
-      // スレッドの親メッセージを取得して確認する追加チェック
-      const parentChannel = message.channel.parent;
-      if (parentChannel) {
-        // 可能であれば親メッセージの作成者を確認
-        const threadStarterMessage = await message.channel.fetchStarterMessage().catch(() => null);
-        if (threadStarterMessage && threadStarterMessage.author.id === client.user.id) {
-          isThreadReply = true;
-        }
+      // スレッドの開始メッセージを取得して確認
+      const threadStarterMessage = await message.channel.fetchStarterMessage().catch(() => null);
+      if (threadStarterMessage && threadStarterMessage.author.id === client.user.id) {
+        isThreadReply = true;
       }
     } catch (e) {
       console.error("Thread parent check error:", e);
     }
   }
 
-  // デバッグログを追加
-  console.log(`Message processing check:
-  - From: ${message.author.tag}
-  - Content: ${message.content}
-  - Channel: ${message.channel.name || 'DM'}
-  - Channel Type: ${message.channel.type}
-  - Is Mentioned: ${isMentioned}
-  - Is DM: ${isDM}
-  - Is Thread Reply: ${isThreadReply}
-  `);
+  // デバッグ出力
+  console.log(`[MESSAGE] From: ${message.author.tag} | Channel: ${message.channel.name || 'DM'} | Content: ${message.content.substring(0, 30)}${message.content.length > 30 ? '...' : ''}`);
+  console.log(`[CHECKS] Mention: ${isMentioned} | DM: ${isDM} | ThreadReply: ${isThreadReply}`);
 
-  // いずれかの条件を満たしていない場合は処理しない
+  // いずれの条件も満たさない場合は処理しない
   if (!isMentioned && !isDM && !isThreadReply) {
-    console.log("Message ignored - conditions not met");
+    console.log("[IGNORED] Message does not meet response criteria");
     return;
   }
 
-  console.log("Message will be processed!");
+  console.log("[PROCESSING] Message meets criteria, processing...");
 
   try {
     // メンションを取り除いたコンテンツを作成
     let cleanContent = message.content;
     if (isMentioned) {
-      // メンションを取り除く (より厳密な方法)
+      // メンションを取り除く
       cleanContent = cleanContent.replace(/<@!?[0-9]+>/g, '').trim();
+      console.log(`[CLEANED] Message without mentions: "${cleanContent}"`);
     }
-    
-    console.log(`Processing message: "${cleanContent}"`);
     
     // GraphAIフローの実行
     const result = await graphAI.run({
@@ -177,7 +168,10 @@ client.on('messageCreate', async (message) => {
 
     // 検索結果の送信
     if (result.output) {
-      message.reply(result.output);
+      await message.reply(result.output);
+      console.log("[REPLIED] Successfully sent response");
+    } else {
+      console.log("[NO OUTPUT] No output from GraphAI flow");
     }
   } catch (error) {
     logError('Message Processing', error);
@@ -188,6 +182,7 @@ client.on('messageCreate', async (message) => {
 // ボットログイン
 try {
   client.login(process.env.DISCORD_TOKEN);
+  console.log("Discord login initiated...");
 } catch (error) {
   logError('Discord Login', error);
   process.exit(1);
