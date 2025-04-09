@@ -20,17 +20,17 @@ const WebSearchAgent = {
       }
 
       // リクエストパラメータの構築
-      const params = new URLSearchParams({
-        q: query,
-        count: options.count || 5,             // 結果の数 (デフォルト: 5)
-        offset: options.offset || 0,           // ページネーション用オフセット
-        country: options.country || 'jp',      // 国コード
-        search_lang: options.search_lang || 'ja', // 検索言語
-        ui_lang: options.ui_lang || 'ja-JP',   // UI言語
-        safesearch: options.safesearch || 'moderate', // 安全検索設定
-        freshness: options.freshness || null,  // 鮮度フィルター
-        text_decorations: false                // テキスト装飾なし
-      });
+      const params = new URLSearchParams();
+      
+      // 基本パラメータを追加
+      params.append('q', query);
+      params.append('count', options.count || 5); // 結果の数 (デフォルト: 5)
+      params.append('offset', options.offset || 0); // ページネーション用オフセット
+      params.append('country', options.country || 'jp'); // 国コード
+      params.append('search_lang', options.search_lang || 'ja'); // 検索言語
+      params.append('ui_lang', options.ui_lang || 'ja-JP'); // UI言語
+      params.append('safesearch', options.safesearch || 'moderate'); // 安全検索設定
+      params.append('text_decorations', 'false'); // テキスト装飾なし
 
       // 任意のパラメータを追加
       if (options.freshness) {
@@ -38,7 +38,7 @@ const WebSearchAgent = {
       }
 
       // APIエンドポイント
-      const endpoint = `https://api.search.brave.com/res/v1/web/search?${params}`;
+      const endpoint = `https://api.search.brave.com/res/v1/web/search?${params.toString()}`;
 
       // APIリクエストの送信
       const response = await fetch(endpoint, {
@@ -57,6 +57,10 @@ const WebSearchAgent = {
 
       // レスポンスのパース
       const data = await response.json();
+      
+      // クエリを追加
+      data.query = query;
+      
       return data;
     } catch (error) {
       console.error('Web search error:', error);
