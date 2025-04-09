@@ -184,6 +184,30 @@ const engine = {
     return {
       error: 'Invalid flow or inputs'
     };
+  },
+  
+  // process関数の追加（TypeScriptからの互換性のために）
+  async process(flowName, inputs) {
+    console.log(`Processing flow: ${flowName}`);
+    
+    // メッセージオブジェクトの形式をdiscordInputに変換
+    if (inputs.message) {
+      return await this.processText({
+        query: inputs.message.content,
+        userId: inputs.message.authorId,
+        username: inputs.message.username
+      });
+    }
+    
+    // 既存のexecuteメソッドにフォールバック
+    const result = await this.execute(flowName, inputs);
+    
+    // discordOutputフィールドがあれば返す
+    if (result && result.discordOutput) {
+      return result.discordOutput;
+    }
+    
+    return result;
   }
 };
 
