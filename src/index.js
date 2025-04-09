@@ -24,15 +24,7 @@ dotenv.config();
 // エラーロギング関数
 function logError(context, error) {
   const timestamp = new Date().toISOString();
-  const errorLog = `
-===== ERROR LOG =====
-Timestamp: ${timestamp}
-Context: ${context}
-Error Name: ${error.name}
-Error Message: ${error.message}
-Error Stack: ${error.stack}
-==================
-`;
+  const errorLog = `\n===== ERROR LOG =====\nTimestamp: ${timestamp}\nContext: ${context}\nError Name: ${error.name}\nError Message: ${error.message}\nError Stack: ${error.stack}\n==================\n`;
   
   // コンソールに出力
   console.error(errorLog);
@@ -164,68 +156,92 @@ function setupMessageHandler() {
     }
 
     // ログ出力
-    console.log(`[${new Date().toISOString()}] Message from ${message.author.tag}`);
-    console.log(`Channel: ${message.channel.name || 'DM'}`);
-    console.log(`Content: ${message.content.substring(0, 30)}${message.content.length > 30 ? '...' : ''}`);
-    console.log(`Checks: Mention=${isMentioned}, DM=${isDM}, ThreadReply=${isThreadReply}`);
-    console.log(`Should respond: ${shouldRespond} (${responseReason})`);
+    console.log(`Message received: "${message.content}" from ${message.author.username} in ${message.channel.type === ChannelType.DM ? 'DM' : message.channel.name}`);
+    console.log(`Channel type: ${message.channel.type}`);
+    console.log(`Check conditions: isMentioned=${isMentioned}, isDM=${isDM}, isThreadReply=${isThreadReply}`);
 
     // 応答条件を満たしていない場合は処理を中断
     if (!shouldRespond) {
-      console.log("IGNORING MESSAGE: Does not meet response criteria");
+      console.log("Message will not be processed: Does not meet bot interaction criteria");
       return;
     }
 
-    // メッセージ処理を行う
-    await processMessage(message, isMentioned);
+    console.log("Message will be processed: Meets bot interaction criteria");
+    console.log(`Processing content: "${message.content}"`);
+
+    // !コマンド形式かどうかをチェック
+    const prefix = process.env.PREFIX || '!';
+    if (message.content.startsWith(prefix)) {
+      const args = message.content.slice(prefix.length).trim().split(/ +/);
+      const command = args.shift().toLowerCase();
+
+      // !search コマンドをチェック
+      if (command === 'search') {
+        const searchQuery = args.join(' ');
+        console.log(`!search command detected with query: "${searchQuery}"`);
+        
+        try {
+          // 検索中メッセージを送信
+          const searchingMsg = await message.reply(`「${searchQuery}」を検索中...`);
+          
+          // Web検索を実行
+          const searchAgent = new WebSearchAgent();
+          const searchResults = await searchAgent.process(searchQuery);
+          
+          // 結果をフォーマット
+          const formatterAgent = new SearchResultFormatterAgent();
+          const formattedResults = await formatterAgent.process(searchResults);
+          
+          // 結果を返信
+          await searchingMsg.edit(formattedResults);
+          console.log("Search results sent successfully");
+          return;
+        } catch (error) {
+          console.error("Error executing search:", error);
+          await message.reply(`検索中にエラーが発生しました: ${error.message}`);
+          return;
+        }
+      }
+      
+      // !image コマンドをチェック
+      if (command === 'image') {
+        console.log(`!image command detected with prompt: "${args.join(' ')}"`);
+        await message.reply(`画像生成機能は近日実装予定です。しばらくお待ちください。`);
+        return;
+      }
+      
+      // !help コマンドをチェック
+      if (command === 'help') {
+        console.log(`!help command detected`);
+        const helpText = `# ボッチー ヘルプ
+
+以下のコマンドが利用可能です：
+
+**一般コマンド:**
+- \`!search [検索語句]\` - ウェブ検索を行います
+- \`!image [プロンプト]\` - 指定したプロンプトで画像を生成します (近日実装予定)
+
+**システムコマンド:**
+- \`!help\` - このヘルプメッセージを表示します
+- \`!clear\` - 会話履歴をクリアします (近日実装予定)
+
+画像付きメッセージを送ると、その画像について分析や質問に答えることができます (近日実装予定)。`;
+        
+        await message.reply(helpText);
+        return;
+      }
+    }
+
+    // 通常会話の処理（現在は制限メッセージ）
+    console.log(`GraphAI processing input: "${message.content}"`);
+    console.log("Command parsed: { command: 'chat', args: '" + message.content + "' }");
+    console.log("Default chat response");
+
+    // デフォルトのレスポンス
+    await message.reply("この機能はまだ実装中です。!search コマンドを使ってウェブ検索を試してみてください。\n\n例: `!search 天気 東京`\n\nコマンド一覧を見るには `!help` と入力してください。");
   });
 
   console.log("Message handler successfully set up");
-}
-
-// メッセージ処理関数
-async function processMessage(message, isMentioned) {
-  try {
-    console.log(`[${new Date().toISOString()}] PROCESSING message from ${message.author.tag}`);
-    
-    // メンションを取り除いたコンテンツを作成
-    let cleanContent = message.content;
-    if (isMentioned) {
-      // メンションを取り除く（すべての可能なメンション形式を考慮）
-      cleanContent = cleanContent.replace(/<@!?\d+>/g, '').trim();
-      console.log(`Cleaned content: "${cleanContent}"`);
-    }
-    
-    // レスポンスの作成を試みる
-    console.log(`Running GraphAI flow...`);
-    
-    // GraphAIフローを実行
-    const result = await graphAI.run({
-      ...webSearchFlow,
-      nodes: {
-        ...webSearchFlow.nodes,
-        input: { value: cleanContent }
-      }
-    });
-
-    // レスポンスの送信
-    if (result && result.output) {
-      console.log(`GraphAI flow completed successfully. Sending response...`);
-      await message.reply(result.output);
-      console.log(`Response sent successfully`);
-    } else {
-      console.log(`GraphAI flow didn't return any output`);
-      await message.reply("処理は完了しましたが、返答を生成できませんでした。");
-    }
-  } catch (error) {
-    logError('Message Processing', error);
-    
-    try {
-      await message.reply('処理中にエラーが発生しました。詳細はログを確認してください。');
-    } catch (replyError) {
-      logError('Error Reply Failed', replyError);
-    }
-  }
 }
 
 // スレッド作成のモニタリング - ボットのスレッドを追跡
