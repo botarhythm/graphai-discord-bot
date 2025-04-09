@@ -36,19 +36,17 @@ module.exports = {
         text: `# ボッチー ヘルプ
 
 こんにちは！ボッチーです。GraphAI技術を活用した会話ボットです。
-現在は以下の機能が利用可能です：
+以下の機能が利用可能です：
 
 **基本コマンド:**
 - \`!help\` - このヘルプメッセージを表示します
+- \`/clear\` - 会話履歴をクリアします
 
-**近日実装予定の機能:**
-- テキスト対話処理
-- 画像分析・理解
-- 画像生成
-- ウェブ検索
+**機能:**
+- テキスト対話処理 - Gemini 2.0 Flash AIによる自然な会話
+- 画像分析 - 画像に関する質問に答えることができます（近日実装）
 
-GraphAI技術を活用した高度な会話体験をお届けするために開発中です。
-今しばらくお待ちください。`
+GraphAI技術を活用した高度な会話をお楽しみください！`
       },
       if: ':checkCommand.helpRequested'
     },
@@ -62,19 +60,36 @@ GraphAI技術を活用した高度な会話体験をお届けするために開�
       if: ':checkCommand.continue && !checkCommand.command'
     },
     
-    // テキスト処理（通常会話）
+    // テキスト処理（通常会話）- Gemini AIを使用
     textProcessing: {
-      agent: 'staticResponseAgent',
+      agent: 'geminiAgent',
       inputs: {
-        text: `こんにちは！ボッチーです。
-GraphAI技術を活用した会話ボットを開発中です。
-
-現在、GraphAIエンジンの統合作業を進めています。
-もうしばらくお待ちください。
-
-コマンド一覧を見るには \`!help\` と入力してください。`
+        query: ':discordInput.content',
+        userId: ':discordInput.authorId',
+        username: ':discordInput.username'
       },
       if: '!checkCommand.command && !contentAnalyzer.hasImage'
+    },
+    
+    // 画像付きメッセージ処理 - Gemini AIを使用
+    imageProcessing: {
+      agent: 'geminiAgent',
+      inputs: {
+        query: ':discordInput.content || "この画像について説明してください"',
+        userId: ':discordInput.authorId',
+        username: ':discordInput.username',
+        imageUrl: ':discordInput.attachments[0]'
+      },
+      if: 'contentAnalyzer.hasImage'
+    },
+    
+    // 履歴クリアコマンド
+    clearHistory: {
+      agent: 'staticResponseAgent',
+      inputs: {
+        text: '会話履歴をクリアしました。新しい会話を始めましょう！'
+      },
+      if: ':checkCommand.clearRequested'
     },
     
     // レスポンス選択（各処理の結果から適切なものを選択）
@@ -83,7 +98,9 @@ GraphAI技術を活用した会話ボットを開発中です。
       inputs: {
         responses: [
           ':helpCommand',
-          ':textProcessing'
+          ':textProcessing.response',
+          ':imageProcessing.response',
+          ':clearHistory'
         ]
       },
       anyInput: true
