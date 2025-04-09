@@ -35,18 +35,20 @@ module.exports = {
       inputs: {
         text: `# ボッチー ヘルプ
 
-以下のコマンドが利用可能です：
+こんにちは！ボッチーです。GraphAI技術を活用した会話ボットです。
+現在は以下の機能が利用可能です：
 
-**一般コマンド:**
-- \`!image [プロンプト]\` - 指定したプロンプトで画像を生成します
-- \`!search [検索語句]\` - ウェブ検索を行います
+**基本コマンド:**
+- \`!help\` - このヘルプメッセージを表示します
 
-**システムコマンド:**
-- \`/help\` - このヘルプメッセージを表示します
-- \`/clear\` - 会話履歴をクリアします
-- \`/reset\` - ボットの状態をリセットします
+**近日実装予定の機能:**
+- テキスト対話処理
+- 画像分析・理解
+- 画像生成
+- ウェブ検索
 
-画像付きメッセージを送ると、その画像について分析や質問に答えることができます。`
+GraphAI技術を活用した高度な会話体験をお届けするために開発中です。
+今しばらくお待ちください。`
       },
       if: ':checkCommand.helpRequested'
     },
@@ -60,54 +62,19 @@ module.exports = {
       if: ':checkCommand.continue && !checkCommand.command'
     },
     
-    // 画像生成処理
-    imageGeneration: {
-      agent: 'imageGenerationAgent',
-      inputs: {
-        prompt: ':checkCommand.args.join(" ")'
-      },
-      if: ':checkCommand.command == "image"'
-    },
-    
-    // ウェブ検索処理
-    webSearch: {
-      agent: 'webSearchAgent',
-      inputs: {
-        query: ':checkCommand.args.join(" ")'
-      },
-      if: ':checkCommand.command == "search"'
-    },
-    
-    // 検索結果フォーマット
-    searchResultFormatting: {
-      agent: 'searchResultFormatterAgent',
-      inputs: {
-        searchData: ':webSearch'
-      },
-      if: ':checkCommand.command == "search"'
-    },
-    
     // テキスト処理（通常会話）
     textProcessing: {
-      agent: 'geminiAgent',
+      agent: 'staticResponseAgent',
       inputs: {
-        query: ':discordInput.content',
-        userId: ':discordInput.authorId',
-        username: ':discordInput.username'
+        text: `こんにちは！ボッチーです。
+GraphAI技術を活用した会話ボットを開発中です。
+
+現在、GraphAIエンジンの統合作業を進めています。
+もうしばらくお待ちください。
+
+コマンド一覧を見るには \`!help\` と入力してください。`
       },
       if: '!checkCommand.command && !contentAnalyzer.hasImage'
-    },
-    
-    // 画像付きメッセージ処理
-    imageProcessing: {
-      agent: 'geminiAgent',
-      inputs: {
-        query: ':discordInput.content || "この画像について説明してください"',
-        userId: ':discordInput.authorId',
-        username: ':discordInput.username',
-        imageUrl: ':discordInput.attachments[0]'
-      },
-      if: 'contentAnalyzer.hasImage'
     },
     
     // レスポンス選択（各処理の結果から適切なものを選択）
@@ -116,10 +83,7 @@ module.exports = {
       inputs: {
         responses: [
           ':helpCommand',
-          ':textProcessing',
-          ':imageProcessing',
-          ':imageGeneration',
-          ':searchResultFormatting'
+          ':textProcessing'
         ]
       },
       anyInput: true
