@@ -1,3 +1,8 @@
+/**
+ * コマンドパーサーエージェント
+ * メッセージからコマンド形式やキーワードを検出して解析します
+ */
+
 class CommandParserAgent {
   static async process(message) {
     console.log(`CommandParserAgent processing message: ${message}`);
@@ -20,7 +25,7 @@ class CommandParserAgent {
       if (command === 'help') {
         return { command: 'help' };
       } else if (command === 'search' || command === 'web') {
-        return { command: 'webSearch', args: args.join(' ') };
+        return { command: 'webSearch', args: args.join(' '), isWebSearch: true };
       } else if (command === 'clear') {
         return { command: 'clearChat' };
       } else if (command === 'image') {
@@ -51,13 +56,20 @@ class CommandParserAgent {
       });
       
       console.log(`Detected web search with query: ${query}`);
-      return { command: 'webSearch', args: query };
+      return { command: 'webSearch', args: query, isWebSearch: true, query: query };
     }
 
     // 通常のチャットメッセージとして処理
     console.log('Processing as chat message');
-    return { command: 'chatDefault', args: message };
+    return { command: 'chatDefault', args: message, query: message };
   }
 }
 
-export default CommandParserAgent;
+// ESM互換性のため、両方のエクスポート形式をサポート
+if (typeof module !== 'undefined' && module.exports) {
+  // CommonJS環境
+  module.exports = CommandParserAgent;
+} else {
+  // ESモジュール環境
+  export default CommandParserAgent;
+}
