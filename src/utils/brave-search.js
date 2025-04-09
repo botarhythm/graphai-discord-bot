@@ -1,9 +1,20 @@
-import dotenv from 'dotenv';
-import fetch from 'node-fetch';
+/**
+ * Brave Search API
+ * ウェブ検索機能を提供するユーティリティ
+ */
+
+const dotenv = require('dotenv');
+const fetch = require('node-fetch');
 
 dotenv.config();
 
-export async function brave_web_search(query, options = {}) {
+/**
+ * Brave Search APIを使用してウェブ検索を実行
+ * @param {string} query - 検索クエリ
+ * @param {Object} options - 検索オプション
+ * @returns {Promise<Array>} 検索結果配列
+ */
+async function brave_web_search(query, options = {}) {
   const {
     count = 5,
     offset = 0,
@@ -62,3 +73,7 @@ export async function brave_web_search(query, options = {}) {
     throw error;
   }
 }
+
+module.exports = {
+  brave_web_search
+};
