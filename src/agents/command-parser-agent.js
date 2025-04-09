@@ -1,141 +1,56 @@
 /**
- * コマンドパーサーエージェント
- * メッセージからコマンド形式やキーワードを検出して解析します
+ * コマンド解析エージェント
  */
 
-class CommandParserAgent {
-  static async process(input) {
-    console.log(`CommandParserAgent processing input:`, input);
-    
-    // 入力がオブジェクトの場合（GraphAIからのオブジェクト入力）
-    let message = input;
-    if (typeof input === 'object' && input !== null) {
-      if (input.content) {
-        message = input.content;
-      } else if (input.message) {
-        message = input.message;
-      } else {
-        console.log('Invalid input format. No content or message property found in input object.');
-        return { command: 'chatDefault', args: '', continue: true };
-      }
-    }
-    
-    if (!message || typeof message !== 'string') {
-      console.log('Invalid message format. Expected string but got:', typeof message);
-      return { command: 'chatDefault', args: '', continue: true };
-    }
-
-    // デフォルトの継続フラグ
-    let continueFlag = true;
-    
-    // コマンド前置詞の検出
-    const prefix = process.env.PREFIX || '!';
-    
-    // コマンドの処理
-    if (message.startsWith(prefix)) {
-      const args = message.slice(prefix.length).trim().split(/ +/);
-      const command = args.shift().toLowerCase();
-      const fullArgs = args.join(' ');
+const CommandParserAgent = {
+  /**
+   * メッセージからコマンドを解析する
+   * @param {string} message - ユーザーからのメッセージ
+   * @returns {Object} 解析されたコマンド情報
+   */
+  async process(message) {
+    try {
+      // プレフィックス（環境変数から取得またはデフォルト値）
+      const prefix = process.env.PREFIX || '!';
       
-      console.log(`Detected command: ${command}, with args: ${fullArgs}`);
-      
-      // 各種コマンドの処理
-      if (command === 'help') {
-        return { 
-          command: 'help', 
-          helpRequested: true, 
-          continue: continueFlag 
-        };
-      } else if (command === 'search' || command === 'web') {
-        if (!fullArgs || fullArgs.trim() === '') {
-          console.log('Empty search query');
-          return {
-            command: 'chatDefault',
-            continue: continueFlag,
-            query: '検索キーワードが指定されていません。!search [検索キーワード] の形式で指定してください。'
-          };
-        }
-        
-        console.log(`Processing web search command with query: ${fullArgs}`);
-        return { 
-          command: 'webSearch', 
-          args: fullArgs, 
-          isWebSearch: true,
-          continue: continueFlag 
-        };
-      } else if (command === 'clear') {
-        return { 
-          command: 'clearChat', 
-          clearRequested: true, 
-          continue: continueFlag 
-        };
-      } else if (command === 'image') {
-        if (!fullArgs || fullArgs.trim() === '') {
-          return {
-            command: 'chatDefault',
-            continue: continueFlag,
-            query: '画像生成のプロンプトが指定されていません。!image [生成する画像の説明] の形式で指定してください。'
-          };
-        }
-        
-        return { 
-          command: 'generateImage', 
-          args: fullArgs, 
-          continue: continueFlag 
-        };
+      // メッセージがない場合
+      if (!message || typeof message !== 'string') {
+        return { command: 'chatDefault', args: message, continue: true };
       }
-    }
-    
-    // Web検索トリガーの検出
-    const searchTriggers = [
-      '検索して', 
-      '調べて', 
-      'について教えて', 
-      'について知りたい', 
-      'web search', 
-      'what is', 
-      'who is'
-    ];
 
-    const lowercaseMessage = message.toLowerCase();
-    const isWebSearch = searchTriggers.some(trigger => 
-      lowercaseMessage.includes(trigger.toLowerCase())
-    );
+      // メッセージのトリム
+      const trimmedMessage = message.trim();
 
-    let query = message;
-    if (isWebSearch) {
-      searchTriggers.forEach(trigger => {
-        query = query.replace(new RegExp(trigger, 'gi'), '').trim();
-      });
-      
-      // クエリが有効な場合のみWeb検索を実行
-      if (query && query.trim() !== '') {
-        console.log(`Detected implicit web search with query: ${query}`);
-        return { 
-          command: 'webSearch', 
-          args: query, 
-          isWebSearch: true,
-          continue: continueFlag 
-        };
+      // ヘルプコマンド
+      if (trimmedMessage === `${prefix}help` || trimmedMessage === '/help') {
+        return { command: 'help', args: null, continue: true };
       }
-    }
 
-    // 通常のチャットメッセージとして処理
-    console.log('Processing as default chat message');
-    return { 
-      command: 'chatDefault', 
-      args: message, 
-      query: message,
-      continue: continueFlag 
-    };
+      // 会話履歴クリアコマンド
+      if (trimmedMessage === '/clear') {
+        return { command: 'clearChat', args: null, continue: true };
+      }
+
+      // 検索コマンド
+      if (trimmedMessage.startsWith(`${prefix}search `)) {
+        const searchQuery = trimmedMessage.slice(`${prefix}search `.length).trim();
+        return { command: 'webSearch', args: searchQuery, continue: true };
+      }
+
+      // 画像生成コマンド
+      if (trimmedMessage.startsWith(`${prefix}image `)) {
+        const imagePrompt = trimmedMessage.slice(`${prefix}image `.length).trim();
+        return { command: 'generateImage', args: imagePrompt, continue: true };
+      }
+
+      // その他のメッセージは通常のチャットとして扱う
+      return { command: 'chatDefault', args: trimmedMessage, continue: true };
+    } catch (error) {
+      console.error('Command parsing error:', error);
+      // エラー時はデフォルトのチャットとして扱う
+      return { command: 'chatDefault', args: message, continue: true };
+    }
   }
-}
+};
 
-// ESM互換性のため、両方のエクスポート形式をサポート
-if (typeof module !== 'undefined' && module.exports) {
-  // CommonJS環境
-  module.exports = CommandParserAgent;
-} else {
-  // ESモジュール環境
-  export default CommandParserAgent;
-}
+module.exports = CommandParserAgent;
