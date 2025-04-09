@@ -14,9 +14,6 @@ const {
   Collection
 } = require('discord.js');
 
-// グラフAIエンジンのインポート
-const graphaiEngine = require('./graphai-engine');
-
 // 環境変数の読み込み
 dotenv.config();
 
@@ -49,32 +46,14 @@ const client = new Client({
 // スレッド情報のキャッシュ - ボットが作成したスレッドを追跡
 const botThreads = new Collection();
 
-// GraphAIエンジンでメッセージを処理する関数
-async function processMessageWithGraphAI(message) {
-  try {
-    // GraphAIエンジンに入力を渡す
-    const result = await graphaiEngine.execute('main', {
-      discordInput: {
-        content: message.content,
-        attachments: message.attachments.map(a => a.url),
-        channelId: message.channel.id,
-        messageId: message.id,
-        authorId: message.author.id,
-        username: message.author.username
-      }
-    });
-
-    // 処理結果が返ってきたら応答
-    if (result && result.discordOutput) {
-      await message.reply(result.discordOutput);
-    } else {
-      console.warn('GraphAI execution returned no output:', result);
-      await message.reply('処理中にエラーが発生しました。しばらく経ってからお試しください。');
-    }
-  } catch (error) {
-    logError('GraphAI Processing Error', error);
-    await message.reply('AIエンジンでエラーが発生しました。開発者に報告します。');
-  }
+// シンプルなGeminiエンジンのインポート
+let geminiEngine = null;
+try {
+  geminiEngine = require('./graphai-engine');
+  console.log("Gemini Engine loaded successfully");
+} catch (error) {
+  logError('Gemini Engine Import Error', error);
+  console.error("Failed to load Gemini Engine:", error.message);
 }
 
 // クライアント準備完了イベント
@@ -82,12 +61,48 @@ client.on(Events.ClientReady, () => {
   console.log(`=========== Bot Ready ===========`);
   console.log(`Logged in as ${client.user.tag}`);
   console.log(`Bot is ready with intents: IntentsBitField { bitfield: ${client.options.intents.bitfield} }`);
-  console.log(`GraphAI Engine initialized: ${graphaiEngine ? 'Yes' : 'No'}`);
+  console.log(`Gemini Engine initialized: ${geminiEngine ? 'Yes' : 'No'}`);
   console.log(`=================================`);
 
   // メッセージハンドラーを設定
   setupMessageHandler();
 });
+
+// Geminiエンジンを使用してメッセージを処理する関数
+async function processMessageWithGemini(message) {
+  try {
+    if (!geminiEngine) {
+      await message.reply("Geminiエンジンが初期化されていません。管理者にお問い合わせください。");
+      return;
+    }
+    
+    // typingインジケータを表示
+    await message.channel.sendTyping();
+    
+    // Geminiエンジンに入力を渡す
+    const result = await geminiEngine.execute('main', {
+      discordInput: {
+        content: message.content,
+        attachments: Array.from(message.attachments.values()).map(a => a.url),
+        channelId: message.channel.id,
+        messageId: message.id,
+        authorId: message.author.id,
+        username: message.author.username
+      }
+    });
+    
+    // 処理結果が返ってきたら応答
+    if (result && result.discordOutput) {
+      await message.reply(result.discordOutput);
+    } else {
+      console.warn('Gemini processing returned no output:', result);
+      await message.reply('処理中にエラーが発生しました。しばらく経ってからお試しください。');
+    }
+  } catch (error) {
+    logError('Message Processing', error);
+    await message.reply('AIエンジンでエラーが発生しました。管理者に報告します。');
+  }
+}
 
 // メッセージハンドラーの設定
 function setupMessageHandler() {
@@ -161,7 +176,7 @@ function setupMessageHandler() {
 
 **機能:**
 - テキスト対話処理 - Gemini 2.0 Flash AIによる自然な会話
-- 画像分析 - 添付画像に関する質問に回答します
+- 画像分析 - 添付画像に関する質問に回答します（近日実装）
 
 GraphAI技術を活用した高度な会話をお楽しみください！`;
       
@@ -169,8 +184,23 @@ GraphAI技術を活用した高度な会話をお楽しみください！`;
       return;
     }
 
-    // GraphAIエンジンでメッセージを処理
-    await processMessageWithGraphAI(message);
+    // /clear コマンドの処理
+    if (message.content.startsWith(`/clear`)) {
+      if (geminiEngine && typeof geminiEngine.clearConversationHistory === 'function') {
+        const cleared = geminiEngine.clearConversationHistory(message.author.id);
+        if (cleared) {
+          await message.reply('会話履歴をクリアしました。新しい会話を始めましょう！');
+        } else {
+          await message.reply('会話履歴のクリアに失敗しました。');
+        }
+      } else {
+        await message.reply('会話履歴機能は現在利用できません。');
+      }
+      return;
+    }
+
+    // Geminiエンジンでメッセージを処理
+    await processMessageWithGemini(message);
   });
 
   console.log("Message handler successfully set up");
