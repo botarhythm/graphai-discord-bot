@@ -12,6 +12,11 @@ const config = require('./config');
 const fs = require('fs');
 const path = require('path');
 
+// Web検索機能をインポート
+const WebSearchAgent = require('./agents/web-search-agent');
+const SearchResultFormatterAgent = require('./agents/search-result-formatter-agent');
+const CommandParserAgent = require('./agents/command-parser-agent');
+
 // Gemini AIクライアントの初期化
 const genAI = new GoogleGenerativeAI(config.gemini.apiKey);
 const model = genAI.getGenerativeModel({ model: config.gemini.model });
@@ -161,24 +166,102 @@ const engine = {
       return `AIモデルとの通信中にエラーが発生しました: ${error.message}`;
     }
   },
+
+  // ウェブ検索を実行する関数
+  async processWebSearch(query) {
+    console.log('Processing web search for query:', query);
+    try {
+      // WebSearchAgentを使用して検索を実行
+      const searchResults = await WebSearchAgent.process(query);
+      
+      // 検索結果をフォーマット
+      const formattedResults = await SearchResultFormatterAgent.process(searchResults);
+      
+      return formattedResults;
+    } catch (error) {
+      console.error('Web search processing error:', error);
+      return `ウェブ検索中にエラーが発生しました: ${error.message || error}`;
+    }
+  },
+  
+  // コマンドを解析する関数
+  async parseCommand(message) {
+    try {
+      return await CommandParserAgent.process(message);
+    } catch (error) {
+      console.error('Command parsing error:', error);
+      return { command: 'chatDefault', args: message };
+    }
+  },
   
   // フローを実行する関数（GraphAI代替の簡易実装）
   async execute(flowName, inputs) {
-    console.log(`Executing flow: ${flowName}`);
+    console.log(`Executing flow: ${flowName} with inputs:`, inputs);
     
     if (flowName === 'main') {
       // ユーザー入力の処理
       if (inputs.discordInput) {
-        const response = await this.processText({
-          query: inputs.discordInput.content,
-          userId: inputs.discordInput.authorId,
-          username: inputs.discordInput.username
-        });
+        // コマンドの解析
+        const parsedCommand = await this.parseCommand(inputs.discordInput.content);
+        console.log('Parsed command:', parsedCommand);
         
-        return {
-          discordOutput: response
-        };
+        // コマンドに基づいて処理を分岐
+        if (parsedCommand.command === 'webSearch') {
+          // Web検索コマンドの処理
+          const searchQuery = parsedCommand.args;
+          const searchResponse = await this.processWebSearch(searchQuery);
+          return {
+            discordOutput: searchResponse
+          };
+        } else if (parsedCommand.command === 'help') {
+          // ヘルプコマンドの処理
+          return {
+            discordOutput: `# ボッチー ヘルプ
+
+こんにちは！ボッチーです。GraphAI技術を活用した会話ボットです。
+以下の機能が利用可能です：
+
+**基本コマンド:**
+- \`!help\` - このヘルプメッセージを表示します
+- \`!search [検索キーワード]\` - ウェブ検索を実行します
+- \`/clear\` - 会話履歴をクリアします
+
+**機能:**
+- テキスト対話処理 - Gemini 2.0 Flash AIによる自然な会話
+- ウェブ検索 - 最新の情報をウェブから検索します
+- 画像分析 - 画像に関する質問に答えることができます（近日実装）
+
+GraphAI技術を活用した高度な会話をお楽しみください！`
+          };
+        } else if (parsedCommand.command === 'clearChat') {
+          // 会話履歴クリアコマンドの処理
+          const cleared = this.clearConversationHistory(inputs.discordInput.authorId);
+          return {
+            discordOutput: cleared ? 
+              '会話履歴をクリアしました。新しい会話を始めましょう！' : 
+              '会話履歴のクリアに失敗しました。'
+          };
+        } else {
+          // 通常のチャットメッセージとして処理
+          const response = await this.processText({
+            query: inputs.discordInput.content,
+            userId: inputs.discordInput.authorId,
+            username: inputs.discordInput.username
+          });
+          
+          return {
+            discordOutput: response
+          };
+        }
       }
+    } else if (flowName === 'web-search') {
+      // ウェブ検索フローの実行
+      const searchQuery = inputs.query;
+      const searchResults = await this.processWebSearch(searchQuery);
+      
+      return {
+        discordOutput: searchResults
+      };
     }
     
     return {
