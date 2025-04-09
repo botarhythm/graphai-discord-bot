@@ -25,7 +25,7 @@ module.exports = {
     checkCommand: {
       agent: 'commandParserAgent',
       inputs: {
-        message: ':discordInput'
+        message: ':discordInput.content'
       }
     },
     
@@ -40,15 +40,35 @@ module.exports = {
 
 **基本コマンド:**
 - \`!help\` - このヘルプメッセージを表示します
+- \`!search [検索キーワード]\` - ウェブ検索を実行します
 - \`/clear\` - 会話履歴をクリアします
 
 **機能:**
 - テキスト対話処理 - Gemini 2.0 Flash AIによる自然な会話
+- ウェブ検索 - 最新の情報をウェブから検索します
 - 画像分析 - 画像に関する質問に答えることができます（近日実装）
 
 GraphAI技術を活用した高度な会話をお楽しみください！`
       },
-      if: ':checkCommand.helpRequested'
+      if: ':checkCommand.command === "help"'
+    },
+    
+    // ウェブ検索コマンド処理
+    webSearch: {
+      agent: 'webSearchAgent',
+      inputs: {
+        query: ':checkCommand.args'
+      },
+      if: ':checkCommand.command === "webSearch"'
+    },
+    
+    // 検索結果のフォーマット
+    searchResultFormatter: {
+      agent: 'searchResultFormatterAgent',
+      inputs: {
+        searchData: ':webSearch'
+      },
+      if: ':checkCommand.command === "webSearch"'
     },
     
     // 入力内容分析（コマンドでない場合）
@@ -57,7 +77,7 @@ GraphAI技術を活用した高度な会話をお楽しみください！`
       inputs: {
         message: ':discordInput'
       },
-      if: ':checkCommand.continue && !checkCommand.command'
+      if: ':checkCommand.command === "chatDefault"'
     },
     
     // テキスト処理（通常会話）- Gemini AIを使用
@@ -68,7 +88,7 @@ GraphAI技術を活用した高度な会話をお楽しみください！`
         userId: ':discordInput.authorId',
         username: ':discordInput.username'
       },
-      if: '!checkCommand.command && !contentAnalyzer.hasImage'
+      if: ':checkCommand.command === "chatDefault" && !contentAnalyzer.hasImage'
     },
     
     // 画像付きメッセージ処理 - Gemini AIを使用
@@ -80,7 +100,7 @@ GraphAI技術を活用した高度な会話をお楽しみください！`
         username: ':discordInput.username',
         imageUrl: ':discordInput.attachments[0]'
       },
-      if: 'contentAnalyzer.hasImage'
+      if: ':contentAnalyzer.hasImage'
     },
     
     // 履歴クリアコマンド
@@ -89,7 +109,7 @@ GraphAI技術を活用した高度な会話をお楽しみください！`
       inputs: {
         text: '会話履歴をクリアしました。新しい会話を始めましょう！'
       },
-      if: ':checkCommand.clearRequested'
+      if: ':checkCommand.command === "clearChat"'
     },
     
     // レスポンス選択（各処理の結果から適切なものを選択）
@@ -100,7 +120,8 @@ GraphAI技術を活用した高度な会話をお楽しみください！`
           ':helpCommand',
           ':textProcessing.response',
           ':imageProcessing.response',
-          ':clearHistory'
+          ':clearHistory',
+          ':searchResultFormatter'
         ]
       },
       anyInput: true
