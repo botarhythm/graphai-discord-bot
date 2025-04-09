@@ -22,6 +22,8 @@ engine.registerAgent('imageGenerationAgent', require('./agents/image-generation'
 engine.registerAgent('discordOutputAgent', require('./agents/discord-output'));
 engine.registerAgent('staticResponseAgent', require('./agents/static-response-agent'));
 engine.registerAgent('copyAgent', require('./agents/copy-agent'));
+engine.registerAgent('webSearchAgent', require('./agents/web-search-agent'));
+engine.registerAgent('searchResultFormatterAgent', require('./agents/search-result-formatter-agent'));
 
 // フローディレクトリからすべてのフローを読み込む（main-flow.js以外）
 const flowsDir = path.join(__dirname, 'flows');
