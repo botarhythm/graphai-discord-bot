@@ -4,7 +4,8 @@
  */
 
 const dotenv = require('dotenv');
-const fetch = require('node-fetch');
+// node-fetch v3は通常ESMのみだが、cross-fetchはCommonJSでも動作する
+const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
 
 dotenv.config();
 
