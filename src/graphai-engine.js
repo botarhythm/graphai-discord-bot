@@ -20,12 +20,13 @@ engine.registerAgent('contentTypeDetectorAgent', require('./agents/content-detec
 engine.registerAgent('staticResponseAgent', require('./agents/static-response-agent'));
 engine.registerAgent('copyAgent', require('./agents/copy-agent'));
 engine.registerAgent('discordOutputAgent', require('./agents/discord-output'));
+engine.registerAgent('geminiAgent', require('./agents/gemini-agent'));
 
 // メインフローの登録
 const mainFlow = require('./flows/main-flow');
 engine.registerFlow('main', mainFlow);
 console.log('📊 Registered main flow');
 
-console.log('🧠 GraphAI Engine initialized');
+console.log('🧠 GraphAI Engine initialized with Gemini AI support');
 
 module.exports = engine;
