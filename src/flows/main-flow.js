@@ -39,7 +39,7 @@ module.exports = {
 
 **一般コマンド:**
 - \`!image [プロンプト]\` - 指定したプロンプトで画像を生成します
-- \`!search [検索語句]\` - ウェブ検索を行います (近日実装予定)
+- \`!search [検索語句]\` - ウェブ検索を行います
 
 **システムコマンド:**
 - \`/help\` - このヘルプメッセージを表示します
@@ -67,6 +67,24 @@ module.exports = {
         prompt: ':checkCommand.args.join(" ")'
       },
       if: ':checkCommand.command == "image"'
+    },
+    
+    // ウェブ検索処理
+    webSearch: {
+      agent: 'webSearchAgent',
+      inputs: {
+        query: ':checkCommand.args.join(" ")'
+      },
+      if: ':checkCommand.command == "search"'
+    },
+    
+    // 検索結果フォーマット
+    searchResultFormatting: {
+      agent: 'searchResultFormatterAgent',
+      inputs: {
+        searchData: ':webSearch'
+      },
+      if: ':checkCommand.command == "search"'
     },
     
     // テキスト処理（通常会話）
@@ -100,7 +118,8 @@ module.exports = {
           ':helpCommand',
           ':textProcessing',
           ':imageProcessing',
-          ':imageGeneration'
+          ':imageGeneration',
+          ':searchResultFormatting'
         ]
       },
       anyInput: true
