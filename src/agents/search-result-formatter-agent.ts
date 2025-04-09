@@ -1,49 +1,62 @@
 /**
- * 検索結果フォーマッターエージェント
- * WebSearchAgentからの結果を整形して表示用に処理します
+ * 検索結果フォーマッタエージェント
+ * ウェブ検索結果を見やすい形式に整形します
  */
 
-interface Agent {
-  name: string;
-  process(input: any): Promise<any>;
+interface SearchResult {
+  title: string;
+  link: string;
+  snippet?: string;
+  description?: string;
 }
 
-class SearchResultFormatterAgent implements Agent {
+interface SearchData {
+  type: string;
+  query?: string;
+  results?: SearchResult[];
+  totalResults?: number;
+  error?: string;
+  message?: string;
+}
+
+class SearchResultFormatterAgent {
   name = 'SearchResultFormatterAgent';
-  
-  async process(results: any): Promise<string> {
-    if (!results || !Array.isArray(results.results) || results.results.length === 0) {
-      // 検索結果が空またはエラーの場合
-      const errorMessage = results && results.error 
-        ? `検索中にエラーが発生しました: ${results.error}`
-        : '検索結果が見つかりませんでした。別のキーワードで試してみてください。';
-      
-      return errorMessage;
+
+  async process(searchData: SearchData): Promise<string> {
+    console.log('SearchResultFormatterAgent processing search results');
+    
+    if (!searchData) {
+      console.log('No search data provided');
+      return '検索データが提供されていません。';
+    }
+    
+    // エラーチェック
+    if (searchData.type === 'error' || searchData.error) {
+      console.log(`Search error: ${searchData.message || searchData.error}`);
+      return `検索中にエラーが発生しました: ${searchData.message || searchData.error || '不明なエラー'}`;
+    }
+    
+    const results = searchData.results || [];
+    if (results.length === 0) {
+      console.log('No search results found');
+      return '検索結果が見つかりませんでした。別のキーワードで試してみてください。';
     }
 
-    try {
-      // 検索結果の整形
-      let formattedResults = '## 🔍 検索結果\n\n';
-      
-      // Gemini APIからの生のテキスト結果を整形
-      const searchText = results.results[0].content;
-      
-      // 長すぎる場合は適切な長さにトリミング
-      const maxLength = 1800; // Discordのメッセージ制限を考慮
-      const trimmedText = searchText.length > maxLength 
-        ? searchText.substring(0, maxLength) + '...(以下省略)'
-        : searchText;
-      
-      formattedResults += trimmedText;
-      
-      // フッターの追加
-      formattedResults += '\n\n---\n*Gemini APIによる検索結果です*';
-      
-      return formattedResults;
-    } catch (error) {
-      console.error('Result formatting error:', error);
-      return '検索結果の処理中にエラーが発生しました。もう一度試してみてください。';
-    }
+    console.log(`Formatting ${results.length} search results`);
+    
+    // 結果をフォーマット
+    const query = searchData.query || '';
+    let formattedOutput = `## "${query}" の検索結果\n\n`;
+    
+    results.forEach((result, index) => {
+      formattedOutput += `### ${index + 1}. ${result.title}\n`;
+      formattedOutput += `${result.link}\n\n`;
+      formattedOutput += `${result.snippet || result.description || '説明なし'}\n\n`;
+    });
+    
+    formattedOutput += `\n合計 ${results.length} 件の結果`;
+    
+    return formattedOutput;
   }
 }
 
