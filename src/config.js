@@ -17,6 +17,10 @@ module.exports = {
     apiKey: process.env.RECRAFT_API_KEY,
     dailyLimit: 50,
   },
+  brave: {
+    apiKey: process.env.BRAVE_API_KEY,
+    dailyLimit: 1000, // Free tier limit
+  },
   graphai: {
     logLevel: 'info',
     enableMonitoring: true,

@@ -16,6 +16,7 @@ const path = require('path');
 const WebSearchAgent = require('./agents/web-search-agent');
 const SearchResultFormatterAgent = require('./agents/search-result-formatter-agent');
 const CommandParserAgent = require('./agents/command-parser-agent');
+const ContentDetectorAgent = require('./agents/content-detector-agent');
 
 // Gemini AIクライアントの初期化
 const genAI = new GoogleGenerativeAI(config.gemini.apiKey);
@@ -194,6 +195,16 @@ const engine = {
     }
   },
   
+  // コンテンツタイプを検出する関数
+  async detectContentType(message) {
+    try {
+      return await ContentDetectorAgent.process(message);
+    } catch (error) {
+      console.error('Content detection error:', error);
+      return { hasImage: false, isWebSearchQuery: false };
+    }
+  },
+  
   // フローを実行する関数（GraphAI代替の簡易実装）
   async execute(flowName, inputs) {
     console.log(`Executing flow: ${flowName} with inputs:`, inputs);
@@ -242,6 +253,19 @@ GraphAI技術を活用した高度な会話をお楽しみください！`
               '会話履歴のクリアに失敗しました。'
           };
         } else {
+          // コンテンツタイプを検出
+          const contentType = await this.detectContentType(inputs.discordInput);
+          console.log('Detected content type:', contentType);
+          
+          // ウェブ検索クエリの場合は検索を実行
+          if (contentType.isWebSearchQuery) {
+            console.log('Detected web search query, performing search...');
+            const searchResponse = await this.processWebSearch(inputs.discordInput.content);
+            return {
+              discordOutput: searchResponse
+            };
+          }
+          
           // 通常のチャットメッセージとして処理
           const response = await this.processText({
             query: inputs.discordInput.content,

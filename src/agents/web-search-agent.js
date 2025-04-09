@@ -1,55 +1,76 @@
 /**
- * ウェブ検索エージェント
- * Brave Search APIを使用してウェブ検索を実行します
+ * Brave APIを使用したウェブ検索エージェント
  */
 
-// CommonJS環境
-const braveSearch = require('../utils/brave-search');
+const fetch = require('node-fetch');
+const config = require('../config');
 
-class WebSearchAgent {
-  static async process(query) {
-    console.log(`WebSearchAgent processing query: "${query}"`);
-    
-    if (!query || typeof query !== 'string' || query.trim() === '') {
-      console.log('Invalid or empty search query');
-      return { 
-        type: 'error',
-        message: '検索クエリが無効または空です。',
-        results: []
-      };
-    }
-
+const WebSearchAgent = {
+  /**
+   * ウェブ検索を実行する
+   * @param {string} query - 検索クエリ
+   * @param {Object} options - 検索オプション
+   * @returns {Promise<Object>} 検索結果
+   */
+  async process(query, options = {}) {
     try {
-      console.log(`Executing web search for: "${query}"`);
+      // APIキーの確認
+      if (!config.brave || !config.brave.apiKey) {
+        throw new Error('Brave API key is not configured');
+      }
+
+      // リクエストパラメータの構築
+      const params = new URLSearchParams();
       
-      // Brave Search APIを呼び出し
-      const searchResults = await braveSearch.brave_web_search(query, {
-        count: 5, 
-        safe: true
+      // 基本パラメータを追加
+      params.append('q', query);
+      params.append('count', options.count || 5); // 結果の数 (デフォルト: 5)
+      params.append('offset', options.offset || 0); // ページネーション用オフセット
+      params.append('country', options.country || 'jp'); // 国コード
+      params.append('search_lang', options.search_lang || 'ja'); // 検索言語
+      params.append('ui_lang', options.ui_lang || 'ja-JP'); // UI言語
+      params.append('safesearch', options.safesearch || 'moderate'); // 安全検索設定
+      params.append('text_decorations', 'false'); // テキスト装飾なし
+
+      // 任意のパラメータを追加
+      if (options.freshness) {
+        params.append('freshness', options.freshness);
+      }
+
+      // APIエンドポイント
+      const endpoint = `https://api.search.brave.com/res/v1/web/search?${params.toString()}`;
+
+      // APIリクエストの送信
+      const response = await fetch(endpoint, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'Accept-Encoding': 'gzip, deflate, br',
+          'X-Subscription-Token': config.brave.apiKey
+        }
       });
 
-      console.log(`Received ${searchResults.length} search results for query "${query}"`);
+      // レスポンスが成功しない場合
+      if (!response.ok) {
+        throw new Error(`Search API error: ${response.status} ${response.statusText}`);
+      }
 
-      return {
-        type: 'web_search',
-        query: query,
-        results: searchResults.map(result => ({
-          title: result.title,
-          link: result.link,
-          snippet: result.description
-        })),
-        totalResults: searchResults.length
-      };
+      // レスポンスのパース
+      const data = await response.json();
+      
+      // クエリを追加
+      data.query = query;
+      
+      return data;
     } catch (error) {
-      console.error('Web検索エラー:', error);
+      console.error('Web search error:', error);
       return {
-        type: 'error',
-        message: '検索中にエラーが発生しました',
-        details: error.toString(),
-        results: []
+        error: true,
+        message: error.message,
+        query
       };
     }
   }
-}
+};
 
 module.exports = WebSearchAgent;
