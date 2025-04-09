@@ -49,6 +49,34 @@ const client = new Client({
 // スレッド情報のキャッシュ - ボットが作成したスレッドを追跡
 const botThreads = new Collection();
 
+// GraphAIエンジンでメッセージを処理する関数
+async function processMessageWithGraphAI(message) {
+  try {
+    // GraphAIエンジンに入力を渡す
+    const result = await graphaiEngine.execute('main', {
+      discordInput: {
+        content: message.content,
+        attachments: message.attachments.map(a => a.url),
+        channelId: message.channel.id,
+        messageId: message.id,
+        authorId: message.author.id,
+        username: message.author.username
+      }
+    });
+
+    // 処理結果が返ってきたら応答
+    if (result && result.discordOutput) {
+      await message.reply(result.discordOutput);
+    } else {
+      console.warn('GraphAI execution returned no output:', result);
+      await message.reply('処理中にエラーが発生しました。しばらく経ってからお試しください。');
+    }
+  } catch (error) {
+    logError('GraphAI Processing Error', error);
+    await message.reply('AIエンジンでエラーが発生しました。開発者に報告します。');
+  }
+}
+
 // クライアント準備完了イベント
 client.on(Events.ClientReady, () => {
   console.log(`=========== Bot Ready ===========`);
@@ -125,32 +153,24 @@ function setupMessageHandler() {
       const helpText = `# ボッチー ヘルプ
 
 こんにちは！ボッチーです。GraphAI技術を活用した会話ボットです。
-現在は以下の機能が利用可能です：
+以下の機能が利用可能です：
 
 **基本コマンド:**
 - \`!help\` - このヘルプメッセージを表示します
+- \`/clear\` - 会話履歴をクリアします
 
-**近日実装予定の機能:**
-- テキスト対話処理
-- 画像分析・理解
-- 画像生成
-- ウェブ検索
+**機能:**
+- テキスト対話処理 - Gemini 2.0 Flash AIによる自然な会話
+- 画像分析 - 添付画像に関する質問に回答します
 
-GraphAI技術を活用した高度な会話体験をお届けするために開発中です。
-今しばらくお待ちください。`;
+GraphAI技術を活用した高度な会話をお楽しみください！`;
       
       await message.reply(helpText);
       return;
     }
 
-    // それ以外のメッセージは開発中メッセージで応答
-    await message.reply(`こんにちは！ボッチーです。
-GraphAI技術を活用した会話ボットを開発中です。
-
-現在、GraphAIエンジンの統合作業を進めています。
-もうしばらくお待ちください。
-
-コマンド一覧を見るには \`!help\` と入力してください。`);
+    // GraphAIエンジンでメッセージを処理
+    await processMessageWithGraphAI(message);
   });
 
   console.log("Message handler successfully set up");
