@@ -1,22 +1,24 @@
-import { fileURLToPath } from 'url';
-import { dirname } from 'path';
-import path from 'path';
-import fs from 'fs';
-import yaml from 'js-yaml';
-import dotenv from 'dotenv';
-import { 
+/**
+ * GraphAI Discord Bot メインエントリーポイント
+ */
+
+// 必要なモジュールをインポート
+const path = require('path');
+const fs = require('fs');
+const yaml = require('js-yaml');
+const dotenv = require('dotenv');
+const { 
   Client, 
   GatewayIntentBits, 
   Events, 
   ChannelType, 
   MessageType,
   Collection
-} from 'discord.js';
-import { GraphAI } from 'graphai';
+} = require('discord.js');
 
-// ESM用の__dirname疑似
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+// グラフAIエンジンのインポート
+const graphaiEngine = require('./graphai-engine');
+const { brave_web_search } = require('./utils/brave-search');
 
 // 環境変数の読み込み
 dotenv.config();
@@ -37,48 +39,9 @@ function logError(context, error) {
   }
 }
 
-// エージェントのインポート
-import CommandParserAgent from './agents/command-parser-agent.js';
-import WebSearchAgent from './agents/web-search-agent.js';
-import SearchResultFormatterAgent from './agents/search-result-formatter-agent.js';
-
-// エージェント定義
-const agents = {
-  commandParserAgent: CommandParserAgent,
-  webSearchAgent: WebSearchAgent,
-  searchResultFormatterAgent: SearchResultFormatterAgent
-};
-
-// フロー読み込み関数
-function loadFlow(flowPath) {
-  try {
-    const fileContents = fs.readFileSync(flowPath, 'utf8');
-    return yaml.load(fileContents);
-  } catch (error) {
-    logError('Flow Loading', error);
-    throw error;
-  }
-}
-
-// メインフロー読み込み
-let webSearchFlow;
-try {
-  webSearchFlow = loadFlow(path.resolve(__dirname, 'flows', 'web-search-flow.yaml'));
-} catch (error) {
-  logError('Flow Initialization', error);
-  process.exit(1);
-}
-
-// GraphAIインスタンスの作成
-let graphAI;
-try {
-  graphAI = new GraphAI({
-    agents: agents
-  });
-} catch (error) {
-  logError('GraphAI Initialization', error);
-  process.exit(1);
-}
+// WebSearchAgentとSearchResultFormatterAgentをCommonJSとして読み込み
+const WebSearchAgent = require('./agents/web-search-agent');
+const SearchResultFormatterAgent = require('./agents/search-result-formatter-agent');
 
 // Discordクライアントの設定
 const client = new Client({
@@ -185,12 +148,22 @@ function setupMessageHandler() {
           const searchingMsg = await message.reply(`「${searchQuery}」を検索中...`);
           
           // Web検索を実行
-          const searchAgent = new WebSearchAgent();
-          const searchResults = await searchAgent.process(searchQuery);
+          const searchResults = await brave_web_search(searchQuery, {
+            count: 5,
+            safe: true
+          });
           
           // 結果をフォーマット
-          const formatterAgent = new SearchResultFormatterAgent();
-          const formattedResults = await formatterAgent.process(searchResults);
+          const formattedResults = await SearchResultFormatterAgent({
+            type: 'web_search',
+            query: searchQuery,
+            results: searchResults.map(result => ({
+              title: result.title,
+              link: result.link,
+              snippet: result.description
+            })),
+            totalResults: searchResults.length
+          });
           
           // 結果を返信
           await searchingMsg.edit(formattedResults);
@@ -232,13 +205,24 @@ function setupMessageHandler() {
       }
     }
 
-    // 通常会話の処理（現在は制限メッセージ）
-    console.log(`GraphAI processing input: "${message.content}"`);
-    console.log("Command parsed: { command: 'chat', args: '" + message.content + "' }");
-    console.log("Default chat response");
+    // 通常会話の処理
+    try {
+      // GraphAIエンジンでメッセージを処理
+      // NOTE: 現在はまだGraphAIエンジンの完全な統合が完了していないため、
+      // デフォルトの応答で対応します。
+      console.log("通常会話処理: GraphAIエンジンの完全統合は準備中");
+      
+      // デフォルトのレスポンス
+      await message.reply(`こんにちは！まだ通常会話の機能は実装途中です。
+!search コマンドを使ってウェブ検索を試してみてください。
 
-    // デフォルトのレスポンス
-    await message.reply("この機能はまだ実装中です。!search コマンドを使ってウェブ検索を試してみてください。\n\n例: `!search 天気 東京`\n\nコマンド一覧を見るには `!help` と入力してください。");
+例: \`!search 天気 東京\`
+
+コマンド一覧を見るには \`!help\` と入力してください。`);
+    } catch (error) {
+      console.error('Error processing message with GraphAI:', error);
+      await message.reply('処理中にエラーが発生しました。しばらくしてからもう一度お試しください。');
+    }
   });
 
   console.log("Message handler successfully set up");
