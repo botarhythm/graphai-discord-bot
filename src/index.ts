@@ -4,18 +4,9 @@ import { Client, GatewayIntentBits, ChannelType, Partials } from 'discord.js';
 import dotenv from 'dotenv';
 import fs from 'fs/promises';
 import path from 'path';
-import { fileURLToPath } from 'url';
-import { dirname } from 'path';
 
 // グローバルにBlobを設定
 (globalThis as any).Blob = Blob;
-
-// __dirnameの代替（CommonJS用）
-const __filename = __filename || '';
-const __dirname = __dirname || '';
-
-// デバッグ用ヘルパー関数の読み込み
-import { debugDM, log, logError } from './debug-helpers.js';
 
 // 環境変数の読み込み
 dotenv.config();
@@ -27,15 +18,10 @@ function logAppError(context: string, error: unknown): void {
   
   console.error(errorLog);
   
-  fs.appendFile(path.join(__dirname, '..', 'error.log'), errorLog)
-    .catch(logError => {
-      console.error('Failed to write error log:', logError);
+  fs.appendFile(path.join(process.cwd(), 'error.log'), errorLog)
+    .catch(logErr => {
+      console.error('Failed to write error log:', logErr);
     });
-}
-
-// GraphAIインターフェース（本物のGraphAIライブラリとの互換性のため）
-interface GraphAI {
-  run(config: any): Promise<any>;
 }
 
 // Discordクライアントの設定
