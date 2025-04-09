@@ -26,22 +26,10 @@ engine.registerAgent('copyAgent', require('./agents/copy-agent'));
 engine.registerAgent('discordOutputAgent', require('./agents/discord-output'));
 engine.registerAgent('geminiAgent', require('./agents/gemini-agent'));
 
-// ウェブ検索エージェントの登録
-engine.registerAgent('webSearchAgent', require('./agents/web-search-agent'));
-
 // メインフローの登録
 const mainFlow = require('./flows/main-flow');
 engine.registerFlow('main', mainFlow);
 console.log('📊 Registered main flow');
-
-// ウェブ検索フローの登録
-try {
-  const webSearchFlow = require('./flows/web-search-flow');
-  engine.registerFlow('webSearch', webSearchFlow);
-  console.log('🔍 Registered web search flow');
-} catch (error) {
-  console.warn('⚠️ Web search flow registration failed:', error.message);
-}
 
 console.log('🧠 GraphAI Engine initialized with Gemini AI support');
 
